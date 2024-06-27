@@ -1,7 +1,10 @@
 using System;
+using Game;
 using Network;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using Util.EventSystem;
 using Util.SingletonSystem;
@@ -22,7 +25,7 @@ namespace UI
 		[Header("UI Set")]
 		[SerializeField] private GameObject menuUISet;
 	
-		[Header("Animation Button")]
+		[Header("Animation UI")]
 		[SerializeField] private AnimationUI loginToStartB;
 		[SerializeField] private AnimationUI startB;
 		[SerializeField] private AnimationUI logoUI;
@@ -44,6 +47,55 @@ namespace UI
 		[Header("InputFields")]
 		[SerializeField] private TMP_InputField loginInput;
 
+		[Header("InGameUI")]
+		[SerializeField] private AnimationUI inGameUI;
+		[SerializeField] private TMP_Text currentTurnText;
+		[SerializeField] private TMP_Text gameTimeText;
+		[SerializeField] private TMP_Text enemyTypeText;
+		[SerializeField] private TMP_Text enemyNameText;
+		[SerializeField] private TMP_Text playerTypeText;
+		[SerializeField] private TMP_Text playerNameText;
+
+		[Header("ResultUI")]
+		[SerializeField] private AnimationUI resultUI;
+		[SerializeField] private TMP_Text resultText;
+		[SerializeField] private Button toLobbyButton;
+
+		public void SetResultText(bool playerWin)
+		{
+			resultText.text = playerWin ? "You Win" : "You Lose";
+		}
+		public void SetCurrentTurnText()
+		{
+			var type = GameManager.Instance.turn == TileType.O ? "O" : "X";
+			currentTurnText.text = new string($"{type}'s\nTurn");
+		}
+		public void SetGameTimeText(int second)
+		{
+			var min = (second / 60).ToString("00");
+			var sec = (second % 60).ToString("00");
+			var text = new string($"Time\n{min}:{sec}");
+			gameTimeText.text = text;
+		}
+		public void SetEnemyTypeText()
+		{
+			var type = GameManager.Instance.enemyTileType == TileType.O ? "O" : "X";
+			enemyTypeText.text = type;
+		}
+		public void SetEnemyName(string enemyName)
+		{
+			enemyNameText.text = enemyName;
+		}
+		public void SetPlayerTypeText()
+		{
+			var type = GameManager.Instance.playerTileType == TileType.O ? "O" : "X";
+			playerTypeText.text = type;
+		}
+		public void SetPlayerName(string playerName)
+		{
+			playerNameText.text = playerName;
+		}
+		
 		public const float AnimationTime = 0.5f;
 
 		private void Start()
@@ -54,6 +106,13 @@ namespace UI
 			startButton.onClick.AddListener(()=> SetUI(EuiState.Login));
 			loginButton.onClick.AddListener(LoginButton);
 			matchButton.onClick.AddListener(GameManager.Instance.StartMachMaking);
+			toLobbyButton.onClick.AddListener(() =>
+			{
+				SetUI(EuiState.Login);
+				GameManager.Instance.SetGameToLogin();
+				NetworkManager.Instance.DisconnectServer();
+				EventManager.Instance.PostNotification(EventType.Reset, this);
+			});
 		}
 		private void LoginButton()
 		{
@@ -63,6 +122,7 @@ namespace UI
 				return;
 			}
 			loginResultText.text = "Connecting...";
+			GameManager.Instance.playerName = loginInput.text;
 			NetworkManager.Instance.TryConnectServer(loginInput.text);
 		}
 		public void OnEvent(EventType eventType, Component sender, object param = null)
@@ -122,6 +182,8 @@ namespace UI
 					logoUI.Show();
 					creditUI.Show();
 					loginUI.Hide();
+					inGameUI.Hide();
+					resultUI.Hide();
 					matchMakingUI.Hide();
 					break;
 				case EuiState.Login:
@@ -131,6 +193,8 @@ namespace UI
 					logoUI.Hide();
 					creditUI.Hide();
 					loginUI.Show();
+					inGameUI.Hide();
+					resultUI.Hide();
 					matchMakingUI.Hide();
 					break;
 				case EuiState.Lobby:
@@ -141,13 +205,20 @@ namespace UI
 					logoUI.Hide();
 					creditUI.Hide();
 					loginUI.Hide();
+					inGameUI.Hide();
+					resultUI.Hide();
 					matchMakingUI.Show();
 					break;
 				case EuiState.InGame:
 					menuUISet.SetActive(false);
+					inGameUI.Show();
+					resultUI.Hide();
 					break;
 				case EuiState.Result:
+					SetResultText((bool)param);
 					menuUISet.SetActive(false);
+					inGameUI.Hide();
+					resultUI.Show();
 					break;
 				default:
 					throw new ArgumentOutOfRangeException(nameof(state), state, null);

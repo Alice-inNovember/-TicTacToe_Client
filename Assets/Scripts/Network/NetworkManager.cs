@@ -2,6 +2,7 @@ using System;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Game;
 using UI;
 using UnityEngine;
 using Util;
@@ -44,18 +45,19 @@ namespace Network
 			catch (OperationCanceledException)
 			{
 				Debug.Log("연결 실패: 타임아웃");
-				EventManager.Instance.PostNotification(EventType.ServerConnection, this, EConnectResult.TimeOut);
 				DisconnectServer();
+				EventManager.Instance.PostNotification(EventType.ServerConnection, this, EConnectResult.TimeOut);
 			}
 			catch (Exception ex)
 			{
 				Debug.Log($"연결 실패: {ex.Message}");
-				EventManager.Instance.PostNotification(EventType.ServerConnection, this, EConnectResult.Error);
 				DisconnectServer();
+				EventManager.Instance.PostNotification(EventType.ServerConnection, this, EConnectResult.Error);
 			}
 		}
-		private void DisconnectServer()
+		public void DisconnectServer()
 		{
+			EventManager.Instance.PostNotification(EventType.ServerConnection, this, EConnectResult.Disconnect);
 			Debug.Log("Server disconnected");
 			_stream?.Dispose();
 			_client?.Dispose();
@@ -88,15 +90,13 @@ namespace Network
 				{
 					var msgTypeBuff = new byte[MsgTypeSize];
 					var msgArgBuff = new byte[MsgArgSize];
-					int bytesRead;
 
-					bytesRead = await _stream.ReadAsync(msgTypeBuff, 0, msgTypeBuff.Length);
+					var bytesRead = await _stream.ReadAsync(msgTypeBuff, 0, msgTypeBuff.Length);
 					if (bytesRead < msgTypeBuff.Length)
 					{
 						DisconnectServer();
 						break;
 					}
-
 					bytesRead = await _stream.ReadAsync(msgArgBuff, 0, msgArgBuff.Length);
 					if (bytesRead < msgArgBuff.Length)
 					{
@@ -113,7 +113,7 @@ namespace Network
 				}
 			}
 		}
-		private static void OnMessageReceived(Message msg)
+		private void OnMessageReceived(Message msg)
 		{
 			Debug.Log($"Message Received : Type={msg.Type().ToString()}, Arg={msg.Arg()}");
 			switch (msg.Type())
@@ -134,9 +134,13 @@ namespace Network
 					GameManager.Instance.MatchFound(msg.Arg());
 					break;
 				case EMessageType.MT_GAME_RESULT:
-					GameManager.Instance.GameOver(msg.Arg());
+					if (GameManager.Instance.state == EGameState.InGame && msg.Arg() == "Enemy escaped")
+						GameManager.Instance.GameOver(GameManager.Instance.playerTileType);
 					break;
 				case EMessageType.MT_USER_ACTION:
+					var temp = msg.Arg().Split(",");
+					var id = new Vector2Int(int.Parse(temp[0]),int.Parse(temp[1]));
+					EventManager.Instance.PostNotification(EventType.EnemyTileClicked, this, id);
 					break;
 				default:
 					throw new ArgumentOutOfRangeException();

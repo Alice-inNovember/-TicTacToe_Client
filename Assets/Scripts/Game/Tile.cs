@@ -3,6 +3,7 @@ using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using Util.EventSystem;
 using EventType = Util.EventSystem.EventType;
@@ -25,15 +26,14 @@ namespace Game
 				case EventType.ServerConnection:
 					break;
 				case EventType.GameStart:
-					ExecuteCommand(new TileCommand(_id, TileType.Null, true));
+					SetTile( TileType.Null, true);
 					break;
-				case EventType.TileClicked:
+				case EventType.Reset:
+					SetTile(TileType.Null, true);
 					break;
-				case EventType.TileCommand:
-					if (param != null)
-						ExecuteCommand((TileCommand)param);
+				case EventType.PlayerTileClicked:
 					break;
-				case EventType.BlockCommand:
+				case EventType.EnemyTileClicked:
 					break;
 				default:
 					throw new ArgumentOutOfRangeException(nameof(eventType), eventType, null);
@@ -42,33 +42,35 @@ namespace Game
 
 		private void Start()
 		{
-			EventManager.Instance.AddListener(EventType.TileCommand, this);
 			EventManager.Instance.AddListener(EventType.GameStart, this);
+			EventManager.Instance.AddListener(EventType.Reset, this);
 		}
 
 		public void Init(Vector2Int id)
 		{
 			_id = id;
+			_text = GetComponentInChildren<TMP_Text>();
 			_button = GetComponent<Button>();
-			_button.onClick.AddListener(() =>
-			{
-				EventManager.Instance.PostNotification(EventType.TileClicked, this, _id);
-			});
+			_button.onClick.AddListener(OnButtonClick);
 		}
 
-		private void ExecuteCommand(TileCommand command)
+		private void OnButtonClick()
 		{
-			if (command.ID != _id)
-				return;
-			_button.interactable = command.Interactable;
-			_text.text = command.Type switch
+			Debug.Log("OnButtonClick" + _id.x + _id.y);
+			EventManager.Instance.PostNotification(EventType.PlayerTileClicked, this, _id);
+		}
+
+		public void SetTile(TileType type, bool interactable)
+		{
+			_button.interactable = interactable;
+			Type = type;
+			_text.text = Type switch
 			{
 				TileType.Null => " ",
 				TileType.O => "O",
 				TileType.X => "X",
-				_ => throw new ArgumentOutOfRangeException(nameof(command.Type), command.Type, null)
+				_ => throw new ArgumentOutOfRangeException()
 			};
-			Type = command.Type;
 		}
 	}
 }

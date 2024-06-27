@@ -5,8 +5,8 @@
 		ProgramStart,
 		ServerConnection,
 		GameStart,
-		TileClicked,
-		TileCommand,
-		BlockCommand
+		Reset,
+		PlayerTileClicked,
+		EnemyTileClicked
 	}
 }
